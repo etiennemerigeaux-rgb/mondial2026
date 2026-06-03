@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pronos Coupe du Monde 2026</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; padding: 20px; margin: 0; }
+        .container { max-width: 1100px; margin: auto; display: grid; grid-template-columns: 1.4fr 1fr; gap: 25px; }
+        @media (max-width: 900px) { .container { grid-template-columns: 1fr; } }
+        .card { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); height: fit-content; }
+        h2 { color: #1a365d; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; margin-top: 0; }
+        .phase-header { background: #1a365d; color: white; padding: 8px 12px; border-radius: 6px; margin-top: 25px; font-weight: bold; font-size: 1.1em; }
+        .match-box { padding: 12px 0; border-bottom: 1px solid #edf2f7; }
+        .match-date { font-size: 12px; color: #718096; margin-bottom: 5px; font-weight: 500; }
+        .match-teams { display: flex; align-items: center; justify-content: space-between; }
+        .team { width: 35%; font-weight: 600; color: #2d3748; }
+        .team.right { text-align: right; }
+        .inputs { display: flex; align-items: center; gap: 5px; }
+        .input-prono { width: 40px; height: 32px; text-align: center; font-size: 15px; border: 2px solid #cbd5e1; border-radius: 6px; font-weight: bold; }
+        .real-score { font-size: 11px; color: #e53e3e; font-weight: bold; display: block; text-align: center; margin-top: 2px; }
+        .input-user { width: 100%; padding: 12px; margin-bottom: 15px; border: 2px solid #cbd5e1; border-radius: 6px; box-sizing: border-box; font-size: 16px; }
+        .btn { display: block; width: 100%; padding: 15px; background: #3182ce; color: white; border: none; border-radius: 8px; font-size: 18px; font-weight: bold; cursor: pointer; position: sticky; bottom: 20px; box-shadow: 0 4px 10px rgba(49, 130, 206, 0.3); }
+        .btn:hover { background: #2b6cb0; }
+        .leaderboard-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        .leaderboard-table th, .leaderboard-table td { padding: 12px; text-align: left; border-bottom: 1px solid #e2e8f0; }
+        .leaderboard-table th { background: #f7fafc; color: #4a5568; }
+        .rank-1 { background: #fef3c7; font-weight: bold; }
+        .zone-scroll { max-height: 70vh; overflow-y: auto; padding-right: 5px; }
+    </style>
+</head>
+<body>
+
+<h1 style="text-align: center; color: #1a365d; margin-bottom: 30px;">🏆 Pronos &amp; Classement - Mondial 2026</h1>
+
+<div class="container">
+    <div class="card">
+        <h2>✍️ Mes Pronostics</h2>
+        <input type="text" id="username" class="input-user" placeholder="Entrez votre Pseudo (ex: Thomas)">
+        <div class="zone-scroll" id="zone-matchs">Chargement des 104 matchs et des dates en cours...</div>
+        <button class="btn" onclick="sauvegarderEtCalculer()">Enregistrer mon score</button>
+    </div>
+
+    <div class="card" style="position: sticky; top: 20px;">
+        <h2>📊 Classement des Collègues</h2>
+        <table class="leaderboard-table">
+            <thead>
+                <tr><th>Rang</th><th>Pseudo</th><th>Points</th></tr>
+            </thead>
+            <tbody id="zone-classement">
+                <tr><td colspan="3">Chargement du classement...</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+const FOOTBALL_API_KEY = "6582850a7c2d4df392645f1c813dc0a4"; 
+const SUPABASE_URL = "https://jrjphgwnhmyjtywqcude.supabase.co"; 
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpyanBoZ3duaG15anR5d3FjdWRlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg5ODg5OTYsImV4cCI6MjA2NDU2NDk5Nn0.Vb4Zg-hBv5pU7N2I-h8Hl6wVl8I3X9u7J-8_8F8X8k4"; 
+
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+let listeMatchs = [];
+
+const traductionPhases = {
+    "GROUP_STAGE": "Phases de Groupes",
+    "LAST_32": "Seizièmes de finale",
+    "LAST_16": "Huitièmes de finale",
+    "QUARTER_FINALS": "Quarts de finale",
+    "SEMI_FINALS": "Demi-finales",
+    "THIRD_PLACE": "Match pour la 3ème place",
+    "FINAL": "🏆 FINALE"
+};
+
+async function chargerMatchs() {
+    try {
+        // Utilisation d'un proxy CORS pour éviter les blocages des navigateurs sur l'API gratuite
+        const proxyUrl = "https://api.allorigins.win/raw?url=";
+        const targetUrl = encodeURIComponent("https://api.football-data.org/v4/competitions/WC/matches");
+        
+        const response = await fetch(proxyUrl + targetUrl, {
+            headers: { 'X-Auth-Token': FOOTBALL_API_KEY }
+        });
+        const data = await response.json();
+        if (data && data.matches) {
+            listeMatchs = data.matches.sort((a, b) => new Date(a.utcDate) - new Date(b.utcDate));
+            afficherMatchsParPhases();
+        } else {
+            throw new Error();
+        }
+    } catch (error) {
+        document.getElementById('zone-matchs').innerHTML = "⚠️ Impossible de récupérer les matchs en direct. Vérifiez que votre compte Football-Data est bien validé.";
+    }
+}
+
+function afficherMatchsParPhases() {
+    let html = "";
+    let dernierePhaseAffichee = "";
+
+    listeMatchs.forEach((match, index) => {
+        let nomPhaseFr = traductionPhases[match.stage] || match.stage;
+        if (nomPhaseFr !== dernierePhaseAffichee) {
+            html += `<div class="phase-header">${nomPhaseFr}</div>`;
+            dernierePhaseAffichee = nomPhaseFr;
+        }
+
+        let dateMatch = new Date(match.utcDate);
+        let optionsDate = { weekday: 'long', day: 'numeric', month: 'long' };
+        let optionsHeure = { hour: '2-digit', minute: '2-digit' };
+        let dateFormatee = dateMatch.toLocaleDateString('fr-FR', optionsDate) + " - " + dateMatch.toLocaleTimeString('fr-FR', optionsHeure);
+
+        let s1Reel = match.score.fullTime.home !== null ? match.score.fullTime.home : "-";
+        let s2Reel = match.score.fullTime.away !== null ? match.score.fullTime.away : "-";
+
+        html += `
+        <div class="match-box">
+            <div class="match-date">${dateFormatee.toUpperCase()}</div>
+            <div class="match-teams">
+                <div class="team">${match.homeTeam.name || "À déterminer"}</div>
+                <div class="inputs">
+                    <div>
+                        <input type="number" id="p1_${index}" class="input-prono" min="0">
+                        <span class="real-score">R: ${s1Reel}</span>
+                    </div>
+                    <span style="color:#cbd5e1; font-weight:bold; margin: 0 4px;">:</span>
+                    <div>
+                        <input type="number" id="p2_${index}" class="input-prono" min="0">
+                        <span class="real-score">R: ${s2Reel}</span>
+                    </div>
+                </div>
+                <div class="team right">${match.awayTeam.name || "À déterminer"}</div>
+            </div>
+        </div>`;
+    });
+
+    document.getElementById('zone-matchs').innerHTML = html;
+}
+
+async function sauvegarderEtCalculer() {
+    const pseudo = document.getElementById('username').value.trim();
+    if (!pseudo) {
+        alert("Veuillez entrer votre pseudo avant de sauvegarder vos pronostics !");
+        return;
+    }
+
+    let pointsDuJoueur = 0;
+    listeMatchs.forEach((match, index) => {
+        let p1 = parseInt(document.getElementById(`p1_${index}`).value);
+        let p2 = parseInt(document.getElementById(`p2_${index}`).value);
+        let r1 = match.score.fullTime.home;
+        let r2 = match.score.fullTime.away;
+
+        if (r1 !== null && r2 !== null && !isNaN(p1) && !isNaN(p2)) {
+            if (p1 === r1 && p2 === r2) { pointsDuJoueur += 4; }
+            else if ((p1 > p2 && r1 > r2) || (p1 < p2 && r1 < r2) || (p1 === p2 && r1 === r2)) { pointsDuJoueur += 3; }
+            else { pointsDuJoueur += 1; }
+        }
+    });
+
+    const { error } = await supabase.from('classement').upsert({ username: pseudo, points: pointsDuJoueur }, { onConflict: 'username' });
+    if (error) { alert("Erreur lors de la sauvegarde : " + error.message); }
+    else { alert(`Parfait ${pseudo} ! Tes pronos sont enregistrés.`); chargerClassement(); }
+}
+
+async function chargerClassement() {
+    try {
+        const { data, error } = await supabase.from('classement').select('username, points').order('points', { ascending: false });
+        if (error) throw error;
+        let html = "";
+        data.forEach((joueur, i) => {
+            let rowClass = i === 0 ? "rank-1" : "";
+            html += `<tr class="${rowClass}"><td><strong>${i + 1}</strong></td><td>${joueur.username}</td><td><strong>${joueur.points} pts</strong></td></tr>`;
+        });
+        document.getElementById('zone-classement').innerHTML = html || "<tr><td colspan='3'>Aucun joueur enregistré pour le moment.</td></tr>";
+    } catch (e) {
+        document.getElementById('zone-classement').innerHTML = "<tr><td colspan='3'>Classement indisponible.</td></tr>";
+    }
+}
+
+chargerMatchs();
+chargerClassement();
+</script>
+</body>
+</html>
