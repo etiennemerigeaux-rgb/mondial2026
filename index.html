@@ -1,8 +1,9 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="fr" class="notranslate">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="google" content="notranslate">
     <title>Pronos Coupe du Monde 2026</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
@@ -60,7 +61,7 @@ const FOOTBALL_API_KEY = "6582850a7c2d4df392645f1c813dc0a4";
 const SUPABASE_URL = "https://jrjphgwnhmyjtywqcude.supabase.co"; 
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpyanBoZ3duaG15anR5d3FjdWRlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg5ODg5OTYsImV4cCI6MjA2NDU2NDk5Nn0.Vb4Zg-hBv5pU7N2I-h8Hl6wVl8I3X9u7J-8_8F8X8k4"; 
 
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+let supabase;
 let listeMatchs = [];
 
 const traductionPhases = {
@@ -73,9 +74,23 @@ const traductionPhases = {
     "FINAL": "🏆 FINALE"
 };
 
+// Lancement sécurisé au chargement de la page
+window.addEventListener('DOMContentLoaded', () => {
+    try {
+        if (typeof window.supabase === 'undefined') {
+            document.getElementById('zone-classement').innerHTML = "<tr><td colspan='3'>⚠️ Erreur : Extension ou réseau bloquant Supabase.</td></tr>";
+            return;
+        }
+        supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        chargerMatchs();
+        chargerClassement();
+    } catch (e) {
+        console.error(e);
+    }
+});
+
 async function chargerMatchs() {
     try {
-        // Utilisation d'un proxy CORS pour éviter les blocages des navigateurs sur l'API gratuite
         const proxyUrl = "https://api.allorigins.win/raw?url=";
         const targetUrl = encodeURIComponent("https://api.football-data.org/v4/competitions/WC/matches");
         
@@ -90,7 +105,7 @@ async function chargerMatchs() {
             throw new Error();
         }
     } catch (error) {
-        document.getElementById('zone-matchs').innerHTML = "⚠️ Impossible de récupérer les matchs en direct. Vérifiez que votre compte Football-Data est bien validé.";
+        document.getElementById('zone-matchs').innerHTML = "⚠️ Impossible de récupérer les matchs. Vérifiez que votre connexion autorise les connexions externes.";
     }
 }
 
@@ -177,9 +192,6 @@ async function chargerClassement() {
         document.getElementById('zone-classement').innerHTML = "<tr><td colspan='3'>Classement indisponible.</td></tr>";
     }
 }
-
-chargerMatchs();
-chargerClassement();
 </script>
 </body>
 </html>
