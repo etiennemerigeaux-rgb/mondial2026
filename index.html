@@ -3,48 +3,53 @@
 <head>
     <meta charset="UTF-8">
     <title>Pronos Mondial 2026</title>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         body { font-family: sans-serif; background: #f0f2f5; padding: 20px; }
         .card { background: white; padding: 20px; border-radius: 12px; margin-bottom: 20px; }
-        .match-box { padding: 10px; border-bottom: 1px solid #ccc; }
-        #log { color: red; font-weight: bold; margin-bottom: 10px; }
+        .match-box { padding: 10px; border-bottom: 1px solid #ccc; font-size: 14px; }
     </style>
 </head>
 <body>
     <h1>🏆 Pronos Mondial 2026</h1>
-    <div id="log"></div>
+    <div id="status" style="color: blue;">Initialisation...</div>
     <div class="card">
         <h2>Mes Pronostics</h2>
-        <div id="liste-matchs">Chargement des données...</div>
-        <button onclick="alert('Enregistré !')">Enregistrer</button>
+        <div id="liste-matchs">En attente de connexion...</div>
     </div>
 
     <script>
-        const log = (msg) => document.getElementById('log').innerText = msg;
-        
-        async function init() {
+        const API_KEY = "6582850a7c2d4df392645f1c813dc0a4";
+        // Le proxy "allorigins" permet de contourner le blocage CORS
+        const PROXY = "https://api.allorigins.win/get?url=";
+        const TARGET = encodeURIComponent("https://api.football-data.org/v4/competitions/WC/matches");
+
+        async function chargerMatchs() {
             try {
-                // Test de connexion basique
-                const response = await fetch("https://api.football-data.org/v4/competitions/WC/matches", {
-                    headers: { 'X-Auth-Token': "6582850a7c2d4df392645f1c813dc0a4" }
+                document.getElementById('status').innerText = "Connexion via Proxy...";
+                const response = await fetch(PROXY + TARGET, {
+                    headers: { 'X-Auth-Token': API_KEY }
                 });
                 
-                if (!response.ok) throw new Error("Erreur API : " + response.status);
-                
                 const data = await response.json();
+                // AllOrigins renvoie les données dans un champ 'contents'
+                const matchData = JSON.parse(data.contents);
+
                 const container = document.getElementById('liste-matchs');
                 container.innerHTML = "";
                 
-                data.matches.slice(0, 5).forEach(m => {
-                    container.innerHTML += `<div class="match-box">${m.homeTeam.name} vs ${m.awayTeam.name}</div>`;
+                matchData.matches.slice(0, 10).forEach(m => {
+                    container.innerHTML += `<div class="match-box">
+                        ${m.homeTeam.name} vs ${m.awayTeam.name}
+                    </div>`;
                 });
-                log("Succès : Connexion établie !");
+                document.getElementById('status').innerText = "Succès : Liste chargée !";
+                document.getElementById('status').style.color = "green";
             } catch (e) {
-                log("Erreur : " + e.message);
+                document.getElementById('status').innerText = "Erreur : " + e.message;
+                document.getElementById('status').style.color = "red";
             }
         }
-        init();
+        chargerMatchs();
     </script>
 </body>
 </html>
