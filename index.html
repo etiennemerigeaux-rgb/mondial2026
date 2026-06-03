@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="google" content="notranslate">
-    <title>Pronos Coupe du Monde 2026</title>
+    <title>Pronos Coupe du Monde 2</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; padding: 20px; margin: 0; }
@@ -29,6 +29,7 @@
         .leaderboard-table th { background: #f7fafc; color: #4a5568; }
         .rank-1 { background: #fef3c7; font-weight: bold; }
         .zone-scroll { max-height: 70vh; overflow-y: auto; padding-right: 5px; }
+        .error-box { background: #fff5f5; color: #c53030; padding: 15px; border-radius: 8px; border-left: 4px solid #e53e3e; font-weight: 500; margin: 10px 0; }
     </style>
 </head>
 <body>
@@ -39,7 +40,7 @@
     <div class="card">
         <h2>✍️ Mes Pronostics</h2>
         <input type="text" id="username" class="input-user" placeholder="Entrez votre Pseudo (ex: Thomas)">
-        <div class="zone-scroll" id="zone-matchs">Chargement des 104 matchs et des dates en cours...</div>
+        <div class="zone-scroll" id="zone-matchs">Démarrage de l'application...</div>
         <button class="btn" onclick="sauvegarderEtCalculer()">Enregistrer mon score</button>
     </div>
 
@@ -50,7 +51,7 @@
                 <tr><th>Rang</th><th>Pseudo</th><th>Points</th></tr>
             </thead>
             <tbody id="zone-classement">
-                <tr><td colspan="3">Chargement du classement...</td></tr>
+                <tr><td colspan="3">Démarrage du classement...</td></tr>
             </tbody>
         </table>
     </div>
@@ -74,20 +75,22 @@ const traductionPhases = {
     "FINAL": "🏆 FINALE"
 };
 
-// Lancement sécurisé au chargement de la page
-window.addEventListener('DOMContentLoaded', () => {
+// Force l'exécution immédiate dès que l'écran est prêt
+setTimeout(() => {
     try {
         if (typeof window.supabase === 'undefined') {
-            document.getElementById('zone-classement').innerHTML = "<tr><td colspan='3'>⚠️ Erreur : Extension ou réseau bloquant Supabase.</td></tr>";
-            return;
+            throw new Error("Le script de la base de données est bloqué. Désactivez AdBlock (ABP) ou changez de réseau (passez sur la 4G de votre téléphone).");
         }
         supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        document.getElementById('zone-matchs').innerHTML = "Connexion à l'API des matchs en cours...";
+        document.getElementById('zone-classement').innerHTML = "<tr><td colspan='3'>Connexion au classement...</td></tr>";
         chargerMatchs();
         chargerClassement();
     } catch (e) {
-        console.error(e);
+        document.getElementById('zone-matchs').innerHTML = `<div class="error-box">⚠️ Erreur de démarrage : ${e.message}</div>`;
+        document.getElementById('zone-classement').innerHTML = "<tr><td colspan='3'>⚠️ Indisponible</td></tr>";
     }
-});
+}, 300);
 
 async function chargerMatchs() {
     try {
@@ -97,15 +100,18 @@ async function chargerMatchs() {
         const response = await fetch(proxyUrl + targetUrl, {
             headers: { 'X-Auth-Token': FOOTBALL_API_KEY }
         });
+        
+        if (!response.ok) throw new Error("Le serveur de secours API rencontre un problème (Statut " + response.status + ")");
+        
         const data = await response.json();
         if (data && data.matches) {
             listeMatchs = data.matches.sort((a, b) => new Date(a.utcDate) - new Date(b.utcDate));
             afficherMatchsParPhases();
         } else {
-            throw new Error();
+            throw new Error("Les données reçues de l'API sont vides.");
         }
     } catch (error) {
-        document.getElementById('zone-matchs').innerHTML = "⚠️ Impossible de récupérer les matchs. Vérifiez que votre connexion autorise les connexions externes.";
+        document.getElementById('zone-matchs').innerHTML = `<div class="error-box">⚠️ Impossible de charger les matchs : ${error.message}<br><br>👉 Conseil : Si vous êtes au travail sur un réseau sécurisé (hôpital/entreprise), le réseau bloque probablement l'accès. Essayez d'ouvrir le site sur votre smartphone en 4G.</div>`;
     }
 }
 
