@@ -40,7 +40,7 @@
     <div class="card">
         <h2>✍️ Mes Pronostics</h2>
         <input type="text" id="username" class="input-user" placeholder="Entrez votre Pseudo (ex: Thomas)">
-        <div class="zone-scroll" id="zone-matchs">Démarrage de l'application...</div>
+        <div class="zone-scroll" id="zone-matchs">Connexion au serveur des matchs...</div>
         <button class="btn" onclick="sauvegarderEtCalculer()">Enregistrer mon score</button>
     </div>
 
@@ -51,7 +51,7 @@
                 <tr><th>Rang</th><th>Pseudo</th><th>Points</th></tr>
             </thead>
             <tbody id="zone-classement">
-                <tr><td colspan="3">Démarrage du classement...</td></tr>
+                <tr><td colspan="3">Connexion au classement...</td></tr>
             </tbody>
         </table>
     </div>
@@ -75,22 +75,20 @@ const traductionPhases = {
     "FINAL": "🏆 FINALE"
 };
 
-// Force l'exécution immédiate dès que l'écran est prêt
-setTimeout(() => {
+// Fonction globale de démarrage automatique
+function demarrerApplication() {
     try {
         if (typeof window.supabase === 'undefined') {
-            throw new Error("Le script de la base de données est bloqué. Désactivez AdBlock (ABP) ou changez de réseau (passez sur la 4G de votre téléphone).");
+            document.getElementById('zone-matchs').innerHTML = `<div class="error-box">⚠️ Erreur : L'outil de base de données (Supabase) n'a pas pu être chargé par votre navigateur. Vérifiez votre connexion.</div>`;
+            return;
         }
         supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-        document.getElementById('zone-matchs').innerHTML = "Connexion à l'API des matchs en cours...";
-        document.getElementById('zone-classement').innerHTML = "<tr><td colspan='3'>Connexion au classement...</td></tr>";
         chargerMatchs();
         chargerClassement();
     } catch (e) {
-        document.getElementById('zone-matchs').innerHTML = `<div class="error-box">⚠️ Erreur de démarrage : ${e.message}</div>`;
-        document.getElementById('zone-classement').innerHTML = "<tr><td colspan='3'>⚠️ Indisponible</td></tr>";
+        document.getElementById('zone-matchs').innerHTML = `<div class="error-box">⚠️ Erreur générale : ${e.message}</div>`;
     }
-}, 300);
+}
 
 async function chargerMatchs() {
     try {
@@ -100,18 +98,15 @@ async function chargerMatchs() {
         const response = await fetch(proxyUrl + targetUrl, {
             headers: { 'X-Auth-Token': FOOTBALL_API_KEY }
         });
-        
-        if (!response.ok) throw new Error("Le serveur de secours API rencontre un problème (Statut " + response.status + ")");
-        
         const data = await response.json();
         if (data && data.matches) {
             listeMatchs = data.matches.sort((a, b) => new Date(a.utcDate) - new Date(b.utcDate));
             afficherMatchsParPhases();
         } else {
-            throw new Error("Les données reçues de l'API sont vides.");
+            throw new Error("Données de l'API vides");
         }
     } catch (error) {
-        document.getElementById('zone-matchs').innerHTML = `<div class="error-box">⚠️ Impossible de charger les matchs : ${error.message}<br><br>👉 Conseil : Si vous êtes au travail sur un réseau sécurisé (hôpital/entreprise), le réseau bloque probablement l'accès. Essayez d'ouvrir le site sur votre smartphone en 4G.</div>`;
+        document.getElementById('zone-matchs').innerHTML = `<div class="error-box">⚠️ Impossible de récupérer les matchs.<br>Si vous êtes sur un réseau d'entreprise ou d'hôpital, la sécurité bloque l'accès aux serveurs de sport. Essayez de passer votre téléphone en 4G/5G.</div>`;
     }
 }
 
@@ -198,6 +193,9 @@ async function chargerClassement() {
         document.getElementById('zone-classement').innerHTML = "<tr><td colspan='3'>Classement indisponible.</td></tr>";
     }
 }
+
+// Déclenchement automatique et immédiat du script
+window.onload = demarrerApplication;
 </script>
 </body>
 </html>
